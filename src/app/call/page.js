@@ -130,6 +130,26 @@ export default function CallPage() {
       }, 3000);
     });
 
+    // Handle socket disconnection
+    newSocket.on("disconnect", (reason) => {
+      console.log("Socket disconnected:", reason);
+
+      // If we're still in a call when disconnected, treat it as call ended
+      if (
+        callStatusRef.current === "connected" ||
+        callStatusRef.current === "connecting"
+      ) {
+        console.log("Call ended due to disconnect");
+        updateCallStatus("ended");
+        cleanup();
+        setTimeout(() => {
+          router.push(
+            role === "volunteer" ? "/dashboard/volunteer" : "/dashboard/vi-user"
+          );
+        }, 3000);
+      }
+    });
+
     // WebRTC signaling - using arrow functions to maintain proper scope
     const handleOfferWrapper = (data) => handleOffer(data, newSocket);
     const handleAnswerWrapper = (data) => handleAnswer(data, newSocket);
@@ -167,14 +187,31 @@ export default function CallPage() {
       console.log("Initializing WebRTC for room:", roomId);
       setWebrtcInitialized(true);
 
-      // Get user media with error handling
+      // Get user media with optimized constraints for reduced lag
       let stream;
       try {
+        // Optimized video constraints for better performance
+        const videoConstraints = {
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 },
+          frameRate: { ideal: 15, max: 30 }, // Lower framerate reduces bandwidth
+          facingMode: "user",
+        };
+
+        // Optimized audio constraints
+        const audioConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1, // Mono audio for lower bandwidth
+        };
+
         stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
+          video: videoConstraints,
+          audio: audioConstraints,
         });
-        console.log("Got user media stream");
+        console.log("Got optimized user media stream");
       } catch (mediaError) {
         console.error("Error accessing media devices:", mediaError);
 
@@ -182,7 +219,13 @@ export default function CallPage() {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: false,
-            audio: true,
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 48000,
+              channelCount: 1,
+            },
           });
           console.log("Got audio-only stream");
           setIsVideoOff(true);
@@ -199,22 +242,109 @@ export default function CallPage() {
         localVideoRef.current.srcObject = stream;
       }
 
-      // Create peer connection with more comprehensive configuration
+      // Create peer connection with comprehensive configuration for better connectivity
       const peerConnection = new RTCPeerConnection({
         iceServers: [
+          // Primary STUN servers
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          // Additional STUN servers for better connectivity
+          { urls: "stun:stun.services.mozilla.com" },
+          // Free TURN servers (for production, use paid TURN servers)
+          {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
         ],
         iceCandidatePoolSize: 10,
+        bundlePolicy: "max-bundle", // Reduce bandwidth usage
+        rtcpMuxPolicy: "require", // Improve performance
       });
 
       console.log("Created peer connection");
       peerConnectionRef.current = peerConnection;
 
-      // Add local stream to peer connection
+      // Set codec preferences for better performance
+      const transceivers = peerConnection.getTransceivers();
+      transceivers.forEach((transceiver) => {
+        const capabilities = RTCRtpReceiver.getCapabilities(
+          transceiver.receiver.track?.kind
+        );
+        if (capabilities && capabilities.codecs) {
+          // Prefer H.264 for video (better hardware acceleration)
+          if (transceiver.receiver.track?.kind === "video") {
+            const h264Codecs = capabilities.codecs.filter((codec) =>
+              codec.mimeType.toLowerCase().includes("h264")
+            );
+            if (h264Codecs.length > 0) {
+              transceiver.setCodecPreferences([
+                ...h264Codecs,
+                ...capabilities.codecs,
+              ]);
+            }
+          }
+
+          // Prefer Opus for audio (lower latency)
+          if (transceiver.receiver.track?.kind === "audio") {
+            const opusCodecs = capabilities.codecs.filter((codec) =>
+              codec.mimeType.toLowerCase().includes("opus")
+            );
+            if (opusCodecs.length > 0) {
+              transceiver.setCodecPreferences([
+                ...opusCodecs,
+                ...capabilities.codecs,
+              ]);
+            }
+          }
+        }
+      });
+
+      // Add local stream to peer connection with optimized parameters
       stream.getTracks().forEach((track) => {
-        peerConnection.addTrack(track, stream);
+        const sender = peerConnection.addTrack(track, stream);
         console.log("Added track:", track.kind);
+
+        // Apply bandwidth constraints for video tracks
+        if (track.kind === "video") {
+          const params = sender.getParameters();
+          if (!params.encodings) {
+            params.encodings = [{}];
+          }
+
+          // Set maximum bitrate to prevent network congestion
+          params.encodings[0].maxBitrate = 500000; // 500 kbps max for video
+          params.encodings[0].maxFramerate = 15; // Limit to 15 fps
+
+          sender
+            .setParameters(params)
+            .catch((err) =>
+              console.warn("Could not set video encoding parameters:", err)
+            );
+        }
+
+        // Apply audio constraints
+        if (track.kind === "audio") {
+          const params = sender.getParameters();
+          if (!params.encodings) {
+            params.encodings = [{}];
+          }
+
+          // Set audio bitrate
+          params.encodings[0].maxBitrate = 64000; // 64 kbps for audio
+
+          sender
+            .setParameters(params)
+            .catch((err) =>
+              console.warn("Could not set audio encoding parameters:", err)
+            );
+        }
       });
 
       // Handle remote stream - improved handling
@@ -289,22 +419,95 @@ export default function CallPage() {
         }
       };
 
-      // Handle connection state changes
+      // Handle connection state changes with adaptive quality
       peerConnection.onconnectionstatechange = () => {
         console.log("Connection state:", peerConnection.connectionState);
         setConnectionDebug(`WebRTC: ${peerConnection.connectionState}`);
+
         if (peerConnection.connectionState === "connected") {
           console.log("WebRTC connection established successfully");
+
+          // Start monitoring network quality for adaptive bitrate
+          startNetworkQualityMonitoring();
         } else if (peerConnection.connectionState === "failed") {
           console.error("WebRTC connection failed");
           setConnectionDebug("WebRTC connection failed");
+        } else if (peerConnection.connectionState === "disconnected") {
+          console.log("WebRTC connection disconnected");
+          setConnectionDebug("Connection lost - ending call");
+
+          // Auto-end call if peer connection is lost and we're still connected
+          if (callStatusRef.current === "connected") {
+            console.log("Auto-ending call due to peer disconnection");
+            setTimeout(() => {
+              if (callStatusRef.current === "connected") {
+                updateCallStatus("ended");
+                cleanup();
+                router.push(
+                  role === "volunteer"
+                    ? "/dashboard/volunteer"
+                    : "/dashboard/vi-user"
+                );
+              }
+            }, 5000); // Give 5 seconds for potential reconnection
+          }
         }
+      };
+
+      // Network quality monitoring function
+      const startNetworkQualityMonitoring = () => {
+        const checkNetworkQuality = async () => {
+          try {
+            const stats = await peerConnection.getStats();
+            let videoSender = null;
+
+            stats.forEach((stat) => {
+              if (stat.type === "outbound-rtp" && stat.mediaType === "video") {
+                const bytesSent = stat.bytesSent || 0;
+                const packetsLost = stat.packetsLost || 0;
+                const jitter = stat.jitter || 0;
+
+                // Simple adaptive bitrate based on packet loss
+                if (packetsLost > 10) {
+                  // High packet loss - reduce quality
+                  videoSender = peerConnection
+                    .getSenders()
+                    .find((s) => s.track && s.track.kind === "video");
+
+                  if (videoSender) {
+                    const params = videoSender.getParameters();
+                    if (params.encodings && params.encodings[0]) {
+                      params.encodings[0].maxBitrate = Math.max(
+                        200000,
+                        params.encodings[0].maxBitrate * 0.8
+                      );
+                      videoSender.setParameters(params);
+                      console.log(
+                        "Reduced bitrate due to packet loss:",
+                        params.encodings[0].maxBitrate
+                      );
+                    }
+                  }
+                }
+              }
+            });
+          } catch (error) {
+            console.warn("Error monitoring network quality:", error);
+          }
+        };
+
+        // Check network quality every 5 seconds
+        const qualityInterval = setInterval(checkNetworkQuality, 5000);
+
+        // Store interval for cleanup
+        peerConnection.qualityInterval = qualityInterval;
       };
 
       // Add additional debugging for ICE connection state
       peerConnection.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", peerConnection.iceConnectionState);
         setConnectionDebug(`ICE: ${peerConnection.iceConnectionState}`);
+
         if (
           peerConnection.iceConnectionState === "connected" ||
           peerConnection.iceConnectionState === "completed"
@@ -312,6 +515,26 @@ export default function CallPage() {
           console.log("ICE connection established - peers can communicate");
         } else if (peerConnection.iceConnectionState === "failed") {
           console.error("ICE connection failed");
+          setConnectionDebug("ICE connection failed - ending call");
+
+          // Auto-end call if ICE fails and we're still connected
+          if (callStatusRef.current === "connected") {
+            console.log("Auto-ending call due to ICE failure");
+            setTimeout(() => {
+              if (callStatusRef.current === "connected") {
+                updateCallStatus("ended");
+                cleanup();
+                router.push(
+                  role === "volunteer"
+                    ? "/dashboard/volunteer"
+                    : "/dashboard/vi-user"
+                );
+              }
+            }, 3000);
+          }
+        } else if (peerConnection.iceConnectionState === "disconnected") {
+          console.log("ICE connection disconnected");
+          setConnectionDebug("ICE disconnected - checking for reconnection...");
         }
       };
 
@@ -500,6 +723,11 @@ export default function CallPage() {
     }
 
     if (peerConnectionRef.current) {
+      // Clear quality monitoring interval
+      if (peerConnectionRef.current.qualityInterval) {
+        clearInterval(peerConnectionRef.current.qualityInterval);
+      }
+
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
@@ -562,12 +790,26 @@ export default function CallPage() {
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            controls={false}
+            preload="metadata"
             className="w-full h-full object-cover"
             style={{
               background: "#1f2937",
               display: isRemoteVideoPlaying ? "block" : "block", // Always show video element
             }}
             aria-label="Remote participant video"
+            onLoadStart={() => console.log("Remote video load started")}
+            onCanPlay={() => console.log("Remote video can play")}
+            onPlaying={() => {
+              console.log("Remote video playing");
+              setIsRemoteVideoPlaying(true);
+            }}
+            onWaiting={() => console.log("Remote video waiting")}
+            onStalled={() => console.log("Remote video stalled")}
+            onError={(e) => console.error("Remote video error:", e)}
+            // Optimizations for better performance
+            disablePictureInPicture={true}
+            disableRemotePlayback={true}
           >
             <track
               kind="captions"
@@ -603,8 +845,14 @@ export default function CallPage() {
             autoPlay
             playsInline
             muted
+            controls={false}
+            preload="metadata"
             className="w-full h-full object-cover"
             aria-label="Your video preview"
+            // Optimizations for local video
+            disablePictureInPicture={true}
+            disableRemotePlayback={true}
+            onError={(e) => console.error("Local video error:", e)}
           >
             <track
               kind="captions"
@@ -615,32 +863,46 @@ export default function CallPage() {
           </video>
         </div>
 
-        {/* Call controls */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-          <div className="flex items-center gap-4 bg-gray-800/90 p-4 rounded-full">
+        {/* Call controls - Clean & Professional */}
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="flex items-center gap-4 bg-gray-900/90 backdrop-blur-sm px-6 py-4 rounded-xl border border-gray-700 shadow-lg">
+            {/* Mute/Unmute Button */}
             <Button
-              variant={isMuted ? "destructive" : "secondary"}
+              variant="ghost"
               size="lg"
               onClick={toggleMute}
-              className="rounded-full w-12 h-12"
+              className={`rounded-full w-12 h-12 transition-colors ${
+                isMuted
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "bg-gray-700 hover:bg-gray-600 text-white"
+              }`}
+              aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
             >
               {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
             </Button>
 
+            {/* Video On/Off Button */}
             <Button
-              variant={isVideoOff ? "destructive" : "secondary"}
+              variant="ghost"
               size="lg"
               onClick={toggleVideo}
-              className="rounded-full w-12 h-12"
+              className={`rounded-full w-12 h-12 transition-colors ${
+                isVideoOff
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "bg-gray-700 hover:bg-gray-600 text-white"
+              }`}
+              aria-label={isVideoOff ? "Turn camera on" : "Turn camera off"}
             >
               {isVideoOff ? <CameraOff size={20} /> : <Camera size={20} />}
             </Button>
 
+            {/* End Call Button */}
             <Button
               variant="destructive"
               size="lg"
               onClick={endCall}
-              className="rounded-full w-12 h-12"
+              className="rounded-full w-12 h-12 bg-red-600 hover:bg-red-700 text-white"
+              aria-label="End call"
             >
               <PhoneOff size={20} />
             </Button>
