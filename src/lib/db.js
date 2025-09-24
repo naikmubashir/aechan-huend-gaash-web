@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+//import config from "./env.js";
 
+const MONGODB_URI = process.env.MONGODB_URI
+console.log('Database connection check:', {
+  hasUri: !!MONGODB_URI,
+  //nodeEnv: config.nodeEnv
+});
 if (!MONGODB_URI) {
   throw new Error(
     "Please define the MONGODB_URI environment variable inside .env.local"

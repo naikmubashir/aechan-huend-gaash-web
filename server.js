@@ -1,3 +1,5 @@
+import config from "./src/lib/env.js";
+
 import { createServer } from "http";
 import { Server } from "socket.io";
 import next from "next";
@@ -7,7 +9,7 @@ import User from "./src/models/User.js";
 import mongoose from "mongoose";
 
 const dev = process.env.NODE_ENV !== "production";
-console.log("PPPP", process.env.NODE_ENV);
+
 const hostname = "localhost";
 const port = 3000;
 
