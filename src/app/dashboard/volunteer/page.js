@@ -26,11 +26,30 @@ export default function VolunteerDashboard() {
   const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);
   const [socket, setSocket] = useState(null);
-  const [stats] = useState({
+  const [stats, setStats] = useState({
     totalCalls: 0,
     totalHours: 0,
     thisWeek: 0,
   });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Function to fetch user stats
+  const fetchStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const response = await fetch("/api/user/stats");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+      } else {
+        console.error("Failed to fetch stats:", response.status);
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   // Handle authentication and routing
   useEffect(() => {
@@ -48,7 +67,33 @@ export default function VolunteerDashboard() {
 
     // Set initial availability from session
     setIsAvailable(session.user.isAvailable || false);
+
+    // Fetch user stats
+    fetchStats();
   }, [session, status, router]);
+
+  // Refresh stats when the page becomes visible (e.g., returning from a call)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && session?.user) {
+        fetchStats();
+      }
+    };
+
+    const handleFocus = () => {
+      if (session?.user) {
+        fetchStats();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [session]);
 
   // Initialize Socket.io connection separately
   useEffect(() => {
@@ -345,7 +390,9 @@ export default function VolunteerDashboard() {
                 <Phone className="text-blue-600" size={24} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalCalls}</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? "..." : stats.totalCalls}
+                </p>
                 <p className="text-sm text-muted-foreground">Total Calls</p>
               </div>
             </div>
@@ -357,7 +404,9 @@ export default function VolunteerDashboard() {
                 <Timer className="text-green-600" size={24} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalHours}h</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? "..." : `${stats.totalHours}h`}
+                </p>
                 <p className="text-sm text-muted-foreground">Hours Helped</p>
               </div>
             </div>
@@ -369,7 +418,9 @@ export default function VolunteerDashboard() {
                 <Heart className="text-purple-600" size={24} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.thisWeek}</p>
+                <p className="text-2xl font-bold">
+                  {isLoadingStats ? "..." : stats.thisWeek}
+                </p>
                 <p className="text-sm text-muted-foreground">This Week</p>
               </div>
             </div>

@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { Button } from "@/components/ui/button";
-import { Video, Brain, User, LogOut, Phone, Mic } from "lucide-react";
+import {
+  Video,
+  Brain,
+  User,
+  LogOut,
+  Phone,
+  Mic,
+  Clock,
+  Heart,
+  Timer,
+} from "lucide-react";
 
 export default function VIUserDashboard() {
   const { data: session, status } = useSession();
@@ -14,6 +24,30 @@ export default function VIUserDashboard() {
   const [isWaitingForVolunteer, setIsWaitingForVolunteer] = useState(false);
   const [socket, setSocket] = useState(null);
   const [callId, setCallId] = useState(null);
+  const [stats, setStats] = useState({
+    totalCalls: 0,
+    totalHours: 0,
+    thisWeek: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Function to fetch user stats
+  const fetchStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const response = await fetch("/api/user/stats");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+      } else {
+        console.error("Failed to fetch stats:", response.status);
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   useEffect(() => {
     // Redirect if not authenticated or wrong role
@@ -28,7 +62,33 @@ export default function VIUserDashboard() {
       router.push("/");
       return;
     }
+
+    // Fetch user stats
+    fetchStats();
   }, [session, status, router]);
+
+  // Refresh stats when the page becomes visible (e.g., returning from a call)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && session?.user) {
+        fetchStats();
+      }
+    };
+
+    const handleFocus = () => {
+      if (session?.user) {
+        fetchStats();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [session]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -357,6 +417,56 @@ export default function VIUserDashboard() {
                 >
                   Upload a photo for AI-powered description
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Stats */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Your Activity</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="bg-card border rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Phone className="text-blue-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">
+                      {isLoadingStats ? "..." : stats.totalCalls}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Calls</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-card border rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Timer className="text-green-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">
+                      {isLoadingStats ? "..." : `${stats.totalHours}h`}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Time Assisted
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-card border rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Heart className="text-purple-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">
+                      {isLoadingStats ? "..." : stats.thisWeek}
+                    </p>
+                    <p className="text-sm text-muted-foreground">This Week</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
