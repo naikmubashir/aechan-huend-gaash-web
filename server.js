@@ -79,6 +79,12 @@ app.prepare().then(() => {
       }
     });
 
+    // Handle explicit room joining
+    socket.on("joinRoom", (roomId) => {
+      console.log(`Socket ${socket.id} joining room: ${roomId}`);
+      socket.join(roomId);
+    });
+
     // VI User requests a call
     socket.on("start_call", (callData) => {
       const callId = `call_${Date.now()}_${Math.random()
@@ -200,15 +206,25 @@ app.prepare().then(() => {
 
     // WebRTC signaling events
     socket.on("offer", (data) => {
+      console.log(`Forwarding offer from ${socket.id} to room ${data.roomId}`);
       socket.to(data.roomId).emit("offer", data);
     });
 
     socket.on("answer", (data) => {
+      console.log(`Forwarding answer from ${socket.id} to room ${data.roomId}`);
       socket.to(data.roomId).emit("answer", data);
     });
 
     socket.on("ice-candidate", (data) => {
+      console.log(
+        `Forwarding ICE candidate from ${socket.id} to room ${data.roomId}`
+      );
       socket.to(data.roomId).emit("ice-candidate", data);
+    });
+
+    socket.on("peer-ready", (data) => {
+      console.log(`Peer ready signal from ${socket.id} in room ${data.roomId}`);
+      socket.to(data.roomId).emit("peer-ready", data);
     });
 
     // End call
