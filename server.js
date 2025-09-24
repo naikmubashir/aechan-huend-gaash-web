@@ -1,8 +1,13 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
 import next from "next";
+import dbConnect from "./src/lib/db.js";
+import Call from "./src/models/Call.js";
+import User from "./src/models/User.js";
+import mongoose from "mongoose";
 
 const dev = process.env.NODE_ENV !== "production";
+console.log("PPPP", process.env.NODE_ENV);
 const hostname = "localhost";
 const port = 3000;
 
@@ -132,7 +137,7 @@ app.prepare().then(() => {
     });
 
     // Volunteer accepts a call
-    socket.on("accept_call", (data) => {
+    socket.on("accept_call", async (data) => {
       const { callId } = data;
       const waitingCall = waitingCalls.get(callId);
 
@@ -147,61 +152,91 @@ app.prepare().then(() => {
         return;
       }
 
-      // Create the call connection
-      const callSession = {
-        callId,
-        viUser: waitingCall.viUser,
-        volunteer: {
-          id: socket.userData.id,
-          name: socket.userData.name,
-          socketId: socket.id,
-        },
-        startTime: Date.now(),
-      };
+      try {
+        // Connect to database
+        await dbConnect();
+        console.log("Database connected for call creation");
 
-      ongoingCalls.set(callId, callSession);
-      waitingCalls.delete(callId);
-
-      // Remove volunteer from available list during call
-      activeVolunteers.delete(socket.id);
-
-      // Create a room for the call
-      const roomId = `room_${callId}`;
-      socket.join(roomId);
-
-      // Get the VI user socket and add to room
-      const viUserSocket = io.sockets.sockets.get(waitingCall.viUser.socketId);
-      if (viUserSocket) {
-        viUserSocket.join(roomId);
-
-        // Notify both parties
-        viUserSocket.emit("call_accepted", {
+        // Create the call connection
+        const callSession = {
           callId,
+          viUser: waitingCall.viUser,
           volunteer: {
-            name: callSession.volunteer.name,
+            id: socket.userData.id,
+            name: socket.userData.name,
+            socketId: socket.id,
+          },
+          startTime: Date.now(),
+        };
+
+        // Create call record in database
+        const roomId = `room_${callId}`;
+        console.log("Creating call record:", {
+          callId,
+          roomId,
+          viUserId: waitingCall.viUser.id,
+          volunteerId: socket.userData.id,
+        });
+
+        const dbCall = await Call.createCall(
+          callId,
+          roomId,
+          new mongoose.Types.ObjectId(waitingCall.viUser.id),
+          new mongoose.Types.ObjectId(socket.userData.id)
+        );
+
+        console.log("Call record created successfully:", dbCall._id);
+
+        ongoingCalls.set(callId, callSession);
+        waitingCalls.delete(callId);
+
+        // Remove volunteer from available list during call
+        activeVolunteers.delete(socket.id);
+
+        // Create a room for the call (use roomId already defined above)
+        socket.join(roomId);
+
+        // Get the VI user socket and add to room
+        const viUserSocket = io.sockets.sockets.get(
+          waitingCall.viUser.socketId
+        );
+        if (viUserSocket) {
+          viUserSocket.join(roomId);
+
+          // Notify both parties
+          viUserSocket.emit("call_accepted", {
+            callId,
+            volunteer: {
+              name: callSession.volunteer.name,
+            },
+            roomId,
+          });
+        }
+
+        socket.emit("call_connected", {
+          callId,
+          viUser: {
+            name: callSession.viUser.name,
           },
           roomId,
         });
+
+        // Notify other volunteers that call was taken
+        activeVolunteers.forEach((volunteer) => {
+          if (volunteer.socketId !== socket.id) {
+            io.to(volunteer.socketId).emit("call_taken", { callId });
+          }
+        });
+
+        console.log(
+          `Call ${callId} connected: ${callSession.viUser.name} <-> ${callSession.volunteer.name}`
+        );
+      } catch (error) {
+        console.error("Error creating call record:", error);
+        socket.emit("call_failed", {
+          error: "Failed to establish call connection",
+        });
       }
-
-      socket.emit("call_connected", {
-        callId,
-        viUser: {
-          name: callSession.viUser.name,
-        },
-        roomId,
-      });
-
-      // Notify other volunteers that call was taken
-      activeVolunteers.forEach((volunteer) => {
-        if (volunteer.socketId !== socket.id) {
-          io.to(volunteer.socketId).emit("call_taken", { callId });
-        }
-      });
-
-      console.log(
-        `Call ${callId} connected: ${callSession.viUser.name} <-> ${callSession.volunteer.name}`
-      );
     });
 
     // WebRTC signaling events
@@ -228,20 +263,57 @@ app.prepare().then(() => {
     });
 
     // End call
-    socket.on("end_call", (data) => {
+    socket.on("end_call", async (data) => {
       const { callId } = data;
       const callSession = ongoingCalls.get(callId);
+      console.log(`End call request from ${socket.id} for call ${callId}`);
+      console.log("Call session found:", !!callSession);
+
+      // Always create room ID to send end call event
+      const roomId = `room_${callId}`;
 
       if (callSession) {
-        const roomId = `room_${callId}`;
         const duration = Date.now() - callSession.startTime;
+        console.log(`Call duration: ${Math.round(duration / 1000)}s`);
 
-        // Notify the room about call end
-        io.to(roomId).emit("call_ended", {
-          callId,
-          duration,
-          endedBy: socket.userData.name,
-        });
+        try {
+          // Connect to database
+          await dbConnect();
+          console.log("Database connected for call ending");
+
+          // Find and update the call record
+          const call = await Call.findOne({ callId });
+          console.log("Database call record found:", !!call);
+
+          if (call) {
+            await call.endCall(new mongoose.Types.ObjectId(socket.userData.id));
+            console.log(
+              `Call ${callId} record updated in database with duration: ${call.duration} minutes`
+            );
+
+            // Update user stats
+            const viUser = await User.findById(call.viUser);
+            const volunteer = await User.findById(call.volunteer);
+
+            if (viUser) {
+              await viUser.incrementCallStats(call.duration);
+              console.log(
+                `Updated stats for VI user: ${viUser.name} (${viUser.stats.totalCalls} calls)`
+              );
+            }
+
+            if (volunteer) {
+              await volunteer.incrementCallStats(call.duration);
+              console.log(
+                `Updated stats for volunteer: ${volunteer.name} (${volunteer.stats.totalCalls} calls)`
+              );
+            }
+          } else {
+            console.log(`No database record found for call ${callId}`);
+          }
+        } catch (error) {
+          console.error("Error updating call record:", error);
+        }
 
         // Clean up
         ongoingCalls.delete(callId);
@@ -261,7 +333,19 @@ app.prepare().then(() => {
         console.log(
           `Call ${callId} ended after ${Math.round(duration / 1000)}s`
         );
+      } else {
+        console.log(
+          `Call session not found for ${callId}, but sending end event anyway`
+        );
       }
+
+      // Always notify the room about call end, even if session was already cleaned up
+      io.to(roomId).emit("call_ended", {
+        callId,
+        duration: callSession ? Date.now() - callSession.startTime : 0,
+        endedBy: socket.userData?.name || "Unknown",
+        reason: callSession ? "user_action" : "cleanup",
+      });
     });
 
     // Update volunteer availability
@@ -309,7 +393,7 @@ app.prepare().then(() => {
     });
 
     // Handle disconnection
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log("Client disconnected:", socket.id);
 
       // Remove from active volunteers
@@ -323,6 +407,53 @@ app.prepare().then(() => {
         ) {
           const roomId = `room_${callId}`;
           const duration = Date.now() - callSession.startTime;
+
+          try {
+            // Connect to database and end the call properly
+            await dbConnect();
+            console.log("Database connected for disconnection cleanup");
+
+            // Find and update the call record
+            const call = await Call.findOne({ callId });
+            console.log("Database call record found for disconnect:", !!call);
+
+            if (call && call.status === "ongoing") {
+              // Determine who disconnected
+              const endedByUserId =
+                callSession.viUser.socketId === socket.id
+                  ? callSession.viUser.id
+                  : callSession.volunteer.id;
+
+              await call.endCall(new mongoose.Types.ObjectId(endedByUserId));
+              console.log(
+                `Call ${callId} record updated in database due to disconnect - duration: ${call.duration} minutes`
+              );
+
+              // Update user stats
+              const viUser = await User.findById(call.viUser);
+              const volunteer = await User.findById(call.volunteer);
+
+              if (viUser) {
+                await viUser.incrementCallStats(call.duration);
+                console.log(
+                  `Updated stats for VI user after disconnect: ${viUser.name} (${viUser.stats.totalCalls} calls)`
+                );
+              }
+
+              if (volunteer) {
+                await volunteer.incrementCallStats(call.duration);
+                console.log(
+                  `Updated stats for volunteer after disconnect: ${volunteer.name} (${volunteer.stats.totalCalls} calls)`
+                );
+              }
+            } else {
+              console.log(
+                `No ongoing database record found for call ${callId} or already ended`
+              );
+            }
+          } catch (error) {
+            console.error("Error updating call record on disconnect:", error);
+          }
 
           // Notify the other party
           socket.to(roomId).emit("call_ended", {
