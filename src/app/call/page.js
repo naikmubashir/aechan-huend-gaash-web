@@ -6,6 +6,13 @@ import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, PhoneOff, Camera, CameraOff } from "lucide-react";
+import {
+  playOutgoingCallSound,
+  stopOutgoingCallSound,
+  playCallConnectedSound,
+  playCallEndedSound,
+  stopAllCallSounds,
+} from "@/lib/sounds";
 
 export default function CallPage() {
   const { data: session, status } = useSession();
@@ -46,6 +53,9 @@ export default function CallPage() {
       userId: session.user.id,
     });
 
+    // Play outgoing call sound when starting to connect
+    playOutgoingCallSound().catch(console.warn);
+
     const newSocket = io("http://localhost:3000", {
       transports: ["polling", "websocket"],
     });
@@ -74,6 +84,9 @@ export default function CallPage() {
       updateCallStatus("connected");
       setConnectionDebug("Call successfully established");
       clearTimeout(connectionTimeout); // Clear connection timeout
+
+      // Play call connected sound
+      playCallConnectedSound().catch(console.warn);
 
       // Set partner name based on role
       if (role === "volunteer") {
@@ -113,6 +126,9 @@ export default function CallPage() {
       setPartnerName(data.volunteer?.name || "Volunteer");
       setCurrentRoomId(data.roomId);
 
+      // Play call connected sound
+      playCallConnectedSound().catch(console.warn);
+
       if (!webrtcInitialized) {
         // Add a delay to ensure both peers are ready
         console.log("Scheduling WebRTC initialization for", role);
@@ -124,6 +140,10 @@ export default function CallPage() {
       console.log("Call ended:", data);
       updateCallStatus("ended");
       clearTimeout(connectionTimeout); // Clear connection timeout
+
+      // Play call ended sound
+      playCallEndedSound().catch(console.warn);
+
       cleanup();
       setTimeout(() => {
         router.push(
@@ -200,6 +220,7 @@ export default function CallPage() {
     return () => {
       console.log("Cleaning up call page");
       clearTimeout(connectionTimeout);
+      stopAllCallSounds(); // Clean up all call sounds
       cleanup();
       newSocket.off("offer", handleOfferWrapper);
       newSocket.off("answer", handleAnswerWrapper);
@@ -1108,6 +1129,9 @@ export default function CallPage() {
   const endCall = () => {
     console.log("Ending call initiated by user");
 
+    // Stop outgoing call sounds immediately when user ends call
+    stopOutgoingCallSound();
+
     if (socket && callId) {
       console.log("Sending end_call signal to server");
       socket.emit("end_call", { callId });
@@ -1289,52 +1313,49 @@ export default function CallPage() {
 
         {/* Call controls - Clean & Professional */}
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-  <div className="flex items-center gap-5 bg-gray-900/80 backdrop-blur-md px-5 py-3 rounded-full border border-gray-700 shadow-xl">
-    
-    {/* Mute/Unmute Button */}
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleMute}
-      className={`w-12 h-12 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-        isMuted
-          ? "bg-red-600 hover:bg-red-700 text-white ring-red-400"
-          : "bg-gray-700 hover:bg-gray-600 text-white ring-gray-500"
-      }`}
-      aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
-    >
-      {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
-    </Button>
+          <div className="flex items-center gap-5 bg-gray-900/80 backdrop-blur-md px-5 py-3 rounded-full border border-gray-700 shadow-xl">
+            {/* Mute/Unmute Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleMute}
+              className={`w-12 h-12 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                isMuted
+                  ? "bg-red-600 hover:bg-red-700 text-white ring-red-400"
+                  : "bg-gray-700 hover:bg-gray-600 text-white ring-gray-500"
+              }`}
+              aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+            >
+              {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
+            </Button>
 
-    {/* Video On/Off Button */}
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleVideo}
-      className={`w-12 h-12 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-        isVideoOff
-          ? "bg-red-600 hover:bg-red-700 text-white ring-red-400"
-          : "bg-gray-700 hover:bg-gray-600 text-white ring-gray-500"
-      }`}
-      aria-label={isVideoOff ? "Turn camera on" : "Turn camera off"}
-    >
-      {isVideoOff ? <CameraOff size={22} /> : <Camera size={22} />}
-    </Button>
+            {/* Video On/Off Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleVideo}
+              className={`w-12 h-12 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                isVideoOff
+                  ? "bg-red-600 hover:bg-red-700 text-white ring-red-400"
+                  : "bg-gray-700 hover:bg-gray-600 text-white ring-gray-500"
+              }`}
+              aria-label={isVideoOff ? "Turn camera on" : "Turn camera off"}
+            >
+              {isVideoOff ? <CameraOff size={22} /> : <Camera size={22} />}
+            </Button>
 
-    {/* End Call Button */}
-    <Button
-      variant="destructive"
-      size="icon"
-      onClick={endCall}
-      className="w-12 h-12 rounded-full bg-red-700 hover:bg-red-800 text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-red-500"
-      aria-label="End call"
-    >
-      <PhoneOff size={22} />
-    </Button>
-    
-  </div>
-</div>
-
+            {/* End Call Button */}
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={endCall}
+              className="w-12 h-12 rounded-full bg-red-700 hover:bg-red-800 text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-red-500"
+              aria-label="End call"
+            >
+              <PhoneOff size={22} />
+            </Button>
+          </div>
+        </div>
 
         {/* Connection status */}
         {callStatus === "connecting" && (

@@ -18,6 +18,11 @@ import {
   Heart,
   Timer,
 } from "lucide-react";
+import {
+  playIncomingCallSound,
+  stopIncomingCallSound,
+  stopAllCallSounds,
+} from "@/lib/sounds";
 
 export default function VolunteerDashboard() {
   const { data: session, status } = useSession();
@@ -126,18 +131,27 @@ export default function VolunteerDashboard() {
     newSocket.on("incoming_call", (callData) => {
       console.log("Incoming call received:", callData);
       setIncomingCall(callData);
+
+      // Play incoming call sound
+      playIncomingCallSound().catch(console.warn);
     });
 
     // Listen for call taken by another volunteer
     newSocket.on("call_taken", (data) => {
       console.log("Call was taken by another volunteer:", data);
       setIncomingCall(null);
+
+      // Stop incoming call sound
+      stopIncomingCallSound();
     });
 
     // Listen for call cancelled
     newSocket.on("call_cancelled", (data) => {
       console.log("Call was cancelled:", data);
       setIncomingCall(null);
+
+      // Stop incoming call sound
+      stopIncomingCallSound();
     });
 
     newSocket.on("connect_error", (error) => {
@@ -146,6 +160,8 @@ export default function VolunteerDashboard() {
 
     newSocket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
+      // Stop all sounds when disconnected
+      stopAllCallSounds();
       // Auto-reconnect logic is handled by socket.io by default
     });
 
@@ -154,6 +170,7 @@ export default function VolunteerDashboard() {
     // Cleanup on unmount
     return () => {
       console.log("Cleaning up socket connection");
+      stopAllCallSounds(); // Clean up all sounds
       newSocket.disconnect();
     };
   }, [session?.user?.id]); // Only depend on user ID, not the socket itself
@@ -227,6 +244,9 @@ export default function VolunteerDashboard() {
 
     console.log("Accepting call from:", incomingCall?.viUser?.name);
 
+    // Stop incoming call sound
+    stopIncomingCallSound();
+
     // Emit accept_call event to socket
     socket.emit("accept_call", {
       callId: incomingCall.callId,
@@ -239,6 +259,9 @@ export default function VolunteerDashboard() {
   };
 
   const handleDeclineCall = () => {
+    // Stop incoming call sound
+    stopIncomingCallSound();
+
     setIncomingCall(null);
   };
 
