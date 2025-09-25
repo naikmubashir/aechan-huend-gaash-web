@@ -1289,49 +1289,52 @@ export default function CallPage() {
 
         {/* Call controls - Clean & Professional */}
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="flex items-center gap-4 bg-gray-900/90 backdrop-blur-sm px-6 py-4 rounded-xl border border-gray-700 shadow-lg">
-            {/* Mute/Unmute Button */}
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={toggleMute}
-              className={`rounded-full w-12 h-12 transition-colors ${
-                isMuted
-                  ? "bg-red-500 hover:bg-red-600 text-white"
-                  : "bg-gray-700 hover:bg-gray-600 text-white"
-              }`}
-              aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
-            >
-              {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-            </Button>
+  <div className="flex items-center gap-5 bg-gray-900/80 backdrop-blur-md px-5 py-3 rounded-full border border-gray-700 shadow-xl">
+    
+    {/* Mute/Unmute Button */}
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleMute}
+      className={`w-12 h-12 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+        isMuted
+          ? "bg-red-600 hover:bg-red-700 text-white ring-red-400"
+          : "bg-gray-700 hover:bg-gray-600 text-white ring-gray-500"
+      }`}
+      aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+    >
+      {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
+    </Button>
 
-            {/* Video On/Off Button */}
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={toggleVideo}
-              className={`rounded-full w-12 h-12 transition-colors ${
-                isVideoOff
-                  ? "bg-red-500 hover:bg-red-600 text-white"
-                  : "bg-gray-700 hover:bg-gray-600 text-white"
-              }`}
-              aria-label={isVideoOff ? "Turn camera on" : "Turn camera off"}
-            >
-              {isVideoOff ? <CameraOff size={20} /> : <Camera size={20} />}
-            </Button>
+    {/* Video On/Off Button */}
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleVideo}
+      className={`w-12 h-12 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+        isVideoOff
+          ? "bg-red-600 hover:bg-red-700 text-white ring-red-400"
+          : "bg-gray-700 hover:bg-gray-600 text-white ring-gray-500"
+      }`}
+      aria-label={isVideoOff ? "Turn camera on" : "Turn camera off"}
+    >
+      {isVideoOff ? <CameraOff size={22} /> : <Camera size={22} />}
+    </Button>
 
-            {/* End Call Button */}
-            <Button
-              variant="destructive"
-              size="lg"
-              onClick={endCall}
-              className="rounded-full w-12 h-12 bg-red-600 hover:bg-red-700 text-white"
-              aria-label="End call"
-            >
-              <PhoneOff size={20} />
-            </Button>
-          </div>
-        </div>
+    {/* End Call Button */}
+    <Button
+      variant="destructive"
+      size="icon"
+      onClick={endCall}
+      className="w-12 h-12 rounded-full bg-red-700 hover:bg-red-800 text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-red-500"
+      aria-label="End call"
+    >
+      <PhoneOff size={22} />
+    </Button>
+    
+  </div>
+</div>
+
 
         {/* Connection status */}
         {callStatus === "connecting" && (
