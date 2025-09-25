@@ -407,58 +407,6 @@ GOOGLE_API_KEY=your-google-gemini-api-key
 NODE_ENV=development
 ```
 
-## 🚢 Deployment
-
-### Production Checklist
-
-- [ ] Environment variables configured
-- [ ] Database connection tested
-- [ ] Google Gemini API key valid
-- [ ] HTTPS certificate installed
-- [ ] STUN/TURN servers configured for production
-- [ ] MongoDB indexes created
-- [ ] Error monitoring setup
-
-### Deployment Options
-
-#### Vercel Deployment
-
-1. Connect repository to Vercel
-2. Configure environment variables in Vercel dashboard
-3. Deploy with automatic builds on push
-
-#### Self-hosted Deployment
-
-1. Build the application: `npm run build`
-2. Set up production environment variables
-3. Use process manager like PM2: `pm2 start server.js`
-4. Configure reverse proxy (nginx/Apache)
-5. Set up SSL certificates
-
-#### Docker Deployment
-
-```dockerfile
-# Example Dockerfile structure
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-
-## 🤝 Contributing
-
-### Development Workflow
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature-name`
-3. Make changes following code standards
-4. Test thoroughly across different browsers
-5. Submit pull request with clear description
 
 ### Code Standards
 
@@ -468,47 +416,10 @@ CMD ["npm", "start"]
 - **Performance**: Optimize images, lazy load components
 - **Security**: Validate all inputs, sanitize data
 
-### Pull Request Guidelines
-
-- Clear description of changes and reasoning
-- Screenshots for UI changes
-- Test coverage for new features
-- Documentation updates for API changes
-- Accessibility testing completed
-
-## 📄 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
 ---
 
 ## 🆘 Support & Troubleshooting
 
-### Common Issues
-
-**WebRTC Connection Issues**
-
-- Check firewall settings for UDP traffic
-- Verify STUN/TURN server configuration
-- Test on different networks/devices
-
-**Audio/Sound Issues**
-
-- Verify browser audio permissions
-- Check system volume settings
-- Test with different audio devices
-
-**Database Connection Issues**
-
-- Confirm MongoDB is running
-- Check connection string format
-- Verify network connectivity
-
-**AI Analysis Failures**
-
-- Validate Google API key
-- Check image size and format
-- Monitor API quota usage
 
 ### Getting Help
 
@@ -517,13 +428,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - **Community**: Join discussions in repository
 - **Support**: Contact maintainers for critical issues
 
-### Performance Tips
-
-- Use modern browsers with WebRTC support
-- Stable internet connection recommended
-- Close unnecessary applications during calls
-- Test audio/video before important sessions
 
 ---
 
-**Built with ❤️ for accessibility and inclusion**
+**Built with ❤️ for accessibility and inclusion by [Naik Mubashir](https://www.github.com/naikmubashir)** 
