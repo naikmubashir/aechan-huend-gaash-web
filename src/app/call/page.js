@@ -66,28 +66,14 @@ export default function CallPage() {
       const roomId = `room_${callId}`;
       console.log("Joining room:", roomId);
       newSocket.emit("joinRoom", roomId);
-
-      // Set up fallback room for direct call page access
-      setTimeout(() => {
-        if (callStatus === "connecting" && !currentRoomId) {
-          console.log("Setting up fallback room");
-          const fallbackRoomId = `room_${callId}`;
-          setCurrentRoomId(fallbackRoomId);
-          updateCallStatus("connected");
-          // Initialize WebRTC after room is set
-          setTimeout(() => {
-            if (!webrtcInitialized) {
-              initializeWebRTC(fallbackRoomId, newSocket);
-            }
-          }, 500);
-        }
-      }, 3000);
     });
 
     // Listen for call events
     newSocket.on("call_connected", (data) => {
       console.log("Call connected event received:", data);
       updateCallStatus("connected");
+      setConnectionDebug("Call successfully established");
+      clearTimeout(connectionTimeout); // Clear connection timeout
 
       // Set partner name based on role
       if (role === "volunteer") {
@@ -106,6 +92,21 @@ export default function CallPage() {
       }
     });
 
+    // Add timeout for connection attempt
+    const connectionTimeout = setTimeout(() => {
+      if (callStatus === "connecting") {
+        console.log("Connection timeout reached");
+        setConnectionDebug(
+          "Connection timeout. This call may have expired or been cancelled."
+        );
+        setTimeout(() => {
+          router.push(
+            role === "volunteer" ? "/dashboard/volunteer" : "/dashboard/vi-user"
+          );
+        }, 5000);
+      }
+    }, 30000); // 30 second timeout
+
     newSocket.on("call_accepted", (data) => {
       console.log("Call accepted event received:", data);
       updateCallStatus("connected");
@@ -122,6 +123,7 @@ export default function CallPage() {
     newSocket.on("call_ended", (data) => {
       console.log("Call ended:", data);
       updateCallStatus("ended");
+      clearTimeout(connectionTimeout); // Clear connection timeout
       cleanup();
       setTimeout(() => {
         router.push(
@@ -133,21 +135,21 @@ export default function CallPage() {
     // Handle socket disconnection
     newSocket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
+      setConnectionDebug(`Disconnected: ${reason}. Attempting to reconnect...`);
 
-      // If we're still in a call when disconnected, treat it as call ended
-      if (
-        callStatusRef.current === "connected" ||
-        callStatusRef.current === "connecting"
-      ) {
-        console.log("Call ended due to disconnect");
-        updateCallStatus("ended");
-        cleanup();
-        setTimeout(() => {
-          router.push(
-            role === "volunteer" ? "/dashboard/volunteer" : "/dashboard/vi-user"
-          );
-        }, 3000);
-      }
+      // Don't immediately end call on disconnect - server will handle timeouts
+      // Only end call if it was an intentional disconnect or connection error persists
+    });
+
+    // Handle reconnection events
+    newSocket.on("user_reconnected", (data) => {
+      console.log("Other user reconnected:", data.userName);
+      setConnectionDebug(`${data.userName} reconnected to the call`);
+    });
+
+    newSocket.on("connect_error", (error) => {
+      console.error("Connection error:", error);
+      setConnectionDebug(`Connection error: ${error.message}`);
     });
 
     // WebRTC signaling - using arrow functions to maintain proper scope
@@ -161,21 +163,132 @@ export default function CallPage() {
       console.log("Peer ready received:", data);
     };
 
+    // Handle server request to create offer
+    const handleCreateOffer = async (data) => {
+      console.log("Server requesting offer creation for room:", data.roomId);
+      if (peerConnectionRef.current) {
+        try {
+          const offer = await peerConnectionRef.current.createOffer({
+            offerToReceiveVideo: true,
+            offerToReceiveAudio: true,
+          });
+          await peerConnectionRef.current.setLocalDescription(offer);
+          console.log("Sending offer to room:", data.roomId);
+
+          if (newSocket?.connected) {
+            newSocket.emit("offer", {
+              roomId: data.roomId,
+              offer,
+            });
+          } else {
+            console.error("Socket not connected for offer creation");
+          }
+        } catch (offerError) {
+          console.error("Error creating/sending offer:", offerError);
+        }
+      } else {
+        console.error("No peer connection available for offer creation");
+      }
+    };
+
     newSocket.on("offer", handleOfferWrapper);
     newSocket.on("answer", handleAnswerWrapper);
     newSocket.on("ice-candidate", handleIceCandidateWrapper);
     newSocket.on("peer-ready", handlePeerReady);
+    newSocket.on("create-offer", handleCreateOffer);
 
     return () => {
       console.log("Cleaning up call page");
+      clearTimeout(connectionTimeout);
       cleanup();
       newSocket.off("offer", handleOfferWrapper);
       newSocket.off("answer", handleAnswerWrapper);
       newSocket.off("ice-candidate", handleIceCandidateWrapper);
       newSocket.off("peer-ready", handlePeerReady);
+      newSocket.off("create-offer", handleCreateOffer);
       newSocket.disconnect();
     };
   }, [session?.user?.id, callId]);
+
+  // Test connectivity to ICE servers before attempting WebRTC connection
+  const testICEServerConnectivity = async () => {
+    const results = {
+      stunServers: { tested: 0, reachable: 0 },
+      turnServers: { tested: 0, reachable: 0 },
+      overallHealth: "unknown",
+    };
+
+    const testServers = [
+      "stun:stun.l.google.com:19302",
+      "stun:stun1.l.google.com:19302",
+      "stun:stun.cloudflare.com:3478",
+      "stun:stun.services.mozilla.com",
+    ];
+
+    for (const server of testServers) {
+      results.stunServers.tested++;
+      try {
+        // Create a temporary peer connection to test STUN server
+        const testPC = new RTCPeerConnection({
+          iceServers: [{ urls: server }],
+          iceCandidatePoolSize: 1,
+        });
+
+        // Wait for candidate gathering or timeout
+        const candidatePromise = new Promise((resolve) => {
+          let hasCandidate = false;
+          const timeout = setTimeout(() => {
+            if (!hasCandidate) resolve(false);
+          }, 3000);
+
+          testPC.onicecandidate = (event) => {
+            if (event.candidate && !hasCandidate) {
+              hasCandidate = true;
+              clearTimeout(timeout);
+              resolve(true);
+            }
+          };
+
+          // Start gathering
+          testPC
+            .createOffer()
+            .then((offer) => testPC.setLocalDescription(offer));
+        });
+
+        if (await candidatePromise) {
+          results.stunServers.reachable++;
+          console.log(`✅ STUN server reachable: ${server}`);
+        } else {
+          console.log(`❌ STUN server unreachable: ${server}`);
+        }
+
+        testPC.close();
+      } catch (error) {
+        console.log(`❌ STUN server test failed: ${server}`, error);
+      }
+    }
+
+    // Determine overall health
+    const stunHealthPercent =
+      results.stunServers.tested > 0
+        ? (results.stunServers.reachable / results.stunServers.tested) * 100
+        : 0;
+
+    if (stunHealthPercent >= 75) {
+      results.overallHealth = "good";
+    } else if (stunHealthPercent >= 25) {
+      results.overallHealth = "fair";
+    } else {
+      results.overallHealth = "poor";
+    }
+
+    console.log(
+      `🏥 Network health: ${results.overallHealth} (${stunHealthPercent.toFixed(
+        0
+      )}% STUN servers reachable)`
+    );
+    return results;
+  };
 
   const initializeWebRTC = async (roomId, socketInstance) => {
     if (webrtcInitialized || peerConnectionRef.current) {
@@ -184,8 +297,14 @@ export default function CallPage() {
     }
 
     try {
-      console.log("Initializing WebRTC for room:", roomId);
+      console.log("🚀 Initializing WebRTC for room:", roomId);
+      setConnectionDebug("🚀 Initializing connection...");
       setWebrtcInitialized(true);
+
+      // Test network connectivity to ICE servers before starting WebRTC
+      console.log("🌐 Testing network connectivity...");
+      const connectivityResults = await testICEServerConnectivity();
+      console.log("📊 Connectivity test results:", connectivityResults);
 
       // Get user media with optimized constraints for reduced lag
       let stream;
@@ -242,30 +361,40 @@ export default function CallPage() {
         localVideoRef.current.srcObject = stream;
       }
 
-      // Create peer connection with comprehensive configuration for better connectivity
+      // Create peer connection with enhanced configuration for better connectivity
       const peerConnection = new RTCPeerConnection({
         iceServers: [
-          // Primary STUN servers
+          // Multiple STUN servers for redundancy
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
           { urls: "stun:stun2.l.google.com:19302" },
-          // Additional STUN servers for better connectivity
+          { urls: "stun:stun3.l.google.com:19302" },
+          { urls: "stun:stun4.l.google.com:19302" },
           { urls: "stun:stun.services.mozilla.com" },
-          // Free TURN servers (for production, use paid TURN servers)
+          // Additional public STUN servers
+          { urls: "stun:stun.stunprotocol.org:3478" },
+          { urls: "stun:stun.cloudflare.com:3478" },
+          // Free TURN servers with multiple transports
           {
-            urls: "turn:openrelay.metered.ca:80",
+            urls: [
+              "turn:openrelay.metered.ca:80",
+              "turn:openrelay.metered.ca:443",
+              "turns:openrelay.metered.ca:443",
+            ],
             username: "openrelayproject",
             credential: "openrelayproject",
           },
+          // Additional free TURN servers
           {
-            urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject",
+            urls: ["turn:relay1.expressturn.com:3478"],
+            username: "efSLANXO7c9jbwRRHR",
+            credential: "4sKqnIPBWuqoT7du",
           },
         ],
-        iceCandidatePoolSize: 10,
-        bundlePolicy: "max-bundle", // Reduce bandwidth usage
-        rtcpMuxPolicy: "require", // Improve performance
+        iceCandidatePoolSize: 15, // Increased for better connectivity
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
+        iceTransportPolicy: "all", // Allow both STUN and TURN
       });
 
       console.log("Created peer connection");
@@ -401,46 +530,236 @@ export default function CallPage() {
         }
       };
 
-      // Handle ICE candidates with socket fallback
+      // Enhanced ICE candidate handling with detailed logging
+      let candidateCount = 0;
+      const candidateTypes = { host: 0, srflx: 0, relay: 0, prflx: 0 };
+
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+          candidateCount++;
+          const candidateType = event.candidate.type || "unknown";
+          candidateTypes[candidateType] =
+            (candidateTypes[candidateType] || 0) + 1;
+
           const activeSocket = socketInstance || socket;
           if (activeSocket?.connected) {
-            console.log("Sending ICE candidate:", event.candidate.type);
+            console.log(
+              `🧊 Sending ICE candidate #${candidateCount} (${candidateType}):`,
+              {
+                type: event.candidate.type,
+                protocol: event.candidate.protocol,
+                address: event.candidate.address?.substring(0, 10) + "...",
+                port: event.candidate.port,
+                priority: event.candidate.priority,
+                foundation: event.candidate.foundation,
+              }
+            );
+
             activeSocket.emit("ice-candidate", {
               roomId,
               candidate: event.candidate,
             });
           } else {
-            console.warn("Socket not available for ICE candidate");
+            console.warn("⚠️ Socket not available for ICE candidate");
           }
         } else {
-          console.log("ICE candidate gathering complete");
+          console.log(
+            `✅ ICE candidate gathering complete! Total: ${candidateCount} candidates`,
+            candidateTypes
+          );
+          setConnectionDebug(`🧊 Gathered ${candidateCount} ICE candidates`);
+
+          // Log candidate gathering summary
+          const totalTypes = Object.values(candidateTypes).reduce(
+            (a, b) => a + b,
+            0
+          );
+          if (totalTypes === 0) {
+            console.warn(
+              "⚠️ No ICE candidates gathered - network connectivity issue"
+            );
+            setConnectionDebug("⚠️ No ICE candidates - check network");
+          } else if (candidateTypes.relay === 0 && candidateTypes.srflx === 0) {
+            console.warn(
+              "⚠️ Only host candidates found - may have NAT/firewall issues"
+            );
+            setConnectionDebug(
+              "⚠️ Limited connectivity - only local candidates"
+            );
+          } else {
+            console.log(
+              "✅ Good ICE candidate variety - connection should work"
+            );
+          }
         }
       };
 
-      // Handle connection state changes with adaptive quality
-      peerConnection.onconnectionstatechange = () => {
-        console.log("Connection state:", peerConnection.connectionState);
-        setConnectionDebug(`WebRTC: ${peerConnection.connectionState}`);
+      // Monitor ICE gathering state changes
+      peerConnection.onicegatheringstatechange = () => {
+        const gatheringState = peerConnection.iceGatheringState;
+        console.log(`🔍 ICE gathering state: ${gatheringState}`);
 
-        if (peerConnection.connectionState === "connected") {
-          console.log("WebRTC connection established successfully");
+        if (gatheringState === "gathering") {
+          setConnectionDebug("🔍 Gathering network paths...");
+        } else if (gatheringState === "complete") {
+          setConnectionDebug("🧊 Network discovery complete");
+          console.log("✅ ICE gathering completed successfully");
+        } else if (gatheringState === "new") {
+          console.log("🆕 Starting ICE gathering process");
+        }
+      };
+
+      // Enhanced WebRTC connection state monitoring
+      let connectionRetries = 0;
+      const maxRetries = 3;
+
+      peerConnection.onconnectionstatechange = async () => {
+        const connectionState = peerConnection.connectionState;
+        const iceState = peerConnection.iceConnectionState;
+        const signalingState = peerConnection.signalingState;
+
+        console.log(
+          `🔗 WebRTC Connection: ${connectionState}, ICE: ${iceState}, Signaling: ${signalingState}`
+        );
+        setConnectionDebug(`WebRTC: ${connectionState}`);
+
+        if (connectionState === "connected") {
+          console.log("✅ WebRTC connection established successfully");
+          setConnectionDebug("✅ Connected successfully");
+          connectionRetries = 0; // Reset retry counter on success
+
+          // Log successful connection stats
+          peerConnection.getStats().then((stats) => {
+            stats.forEach((report) => {
+              if (report.type === "transport") {
+                console.log("📡 Transport info:", {
+                  dtlsState: report.dtlsState,
+                  selectedCandidatePairId: report.selectedCandidatePairId,
+                });
+              } else if (
+                report.type === "candidate-pair" &&
+                report.state === "succeeded"
+              ) {
+                console.log("🎯 Active connection path:", {
+                  localCandidate: report.localCandidateId,
+                  remoteCandidate: report.remoteCandidateId,
+                  currentRoundTripTime: report.currentRoundTripTime,
+                  totalRoundTripTime: report.totalRoundTripTime,
+                });
+              }
+            });
+          });
 
           // Start monitoring network quality for adaptive bitrate
           startNetworkQualityMonitoring();
-        } else if (peerConnection.connectionState === "failed") {
-          console.error("WebRTC connection failed");
-          setConnectionDebug("WebRTC connection failed");
-        } else if (peerConnection.connectionState === "disconnected") {
-          console.log("WebRTC connection disconnected");
-          setConnectionDebug("Connection lost - ending call");
+        } else if (connectionState === "failed") {
+          console.error("❌ WebRTC connection failed");
 
-          // Auto-end call if peer connection is lost and we're still connected
-          if (callStatusRef.current === "connected") {
-            console.log("Auto-ending call due to peer disconnection");
+          // Enhanced failure diagnostics
+          peerConnection
+            .getStats()
+            .then((stats) => {
+              const diagnostics = {
+                certificates: 0,
+                dataChannels: 0,
+                inboundRtp: 0,
+                outboundRtp: 0,
+                candidates: 0,
+                candidatePairs: 0,
+                transports: 0,
+              };
+
+              stats.forEach((report) => {
+                if (diagnostics.hasOwnProperty(report.type.replace(/-/g, ""))) {
+                  diagnostics[report.type.replace(/-/g, "")]++;
+                }
+
+                // Log specific failure reasons
+                if (
+                  report.type === "transport" &&
+                  report.dtlsState === "failed"
+                ) {
+                  console.error("🚫 DTLS transport failed:", report);
+                } else if (
+                  report.type === "certificate" &&
+                  report.fingerprint
+                ) {
+                  console.log(
+                    "📜 Certificate fingerprint:",
+                    report.fingerprint
+                  );
+                }
+              });
+
+              console.log("📊 Connection diagnostics:", diagnostics);
+
+              // Provide specific guidance
+              if (diagnostics.transports === 0) {
+                setConnectionDebug(
+                  "❌ No transport layer - severe connectivity issue"
+                );
+              } else if (diagnostics.candidatePairs === 0) {
+                setConnectionDebug(
+                  "❌ No candidate pairs - ICE gathering failed"
+                );
+              } else {
+                setConnectionDebug(
+                  "❌ Connection established but failed - protocol issue"
+                );
+              }
+            })
+            .catch((err) => {
+              console.error("Error getting connection diagnostics:", err);
+            });
+
+          if (connectionRetries < maxRetries) {
+            connectionRetries++;
+            console.log(
+              `🔄 Attempting connection recovery ${connectionRetries}/${maxRetries}`
+            );
+            setConnectionDebug(
+              `🔄 Connection failed - Retrying (${connectionRetries}/${maxRetries})`
+            );
+
+            // Attempt to restart ICE
+            try {
+              if (role === "volunteer") {
+                console.log("🎯 Volunteer creating new offer for retry");
+                const offer = await peerConnection.createOffer({
+                  iceRestart: true,
+                });
+                await peerConnection.setLocalDescription(offer);
+
+                if (socket?.connected) {
+                  socket.emit("offer", {
+                    roomId: currentRoomId,
+                    offer,
+                  });
+                }
+              }
+            } catch (retryError) {
+              console.error("Error during connection retry:", retryError);
+            }
+          } else {
+            console.error("Max connection retries reached");
+            setConnectionDebug(
+              "❌ Connection failed - Unable to establish connection"
+            );
+
+            // Show user-friendly error and option to retry with helpful context
             setTimeout(() => {
-              if (callStatusRef.current === "connected") {
+              const message =
+                "Connection failed after multiple attempts.\n\n" +
+                "This could be due to:\n" +
+                "• Firewall or network restrictions\n" +
+                "• Poor internet connectivity\n" +
+                "• Server issues\n\n" +
+                "Check the browser console for detailed diagnostics.\n\n" +
+                "Would you like to try again?";
+
+              if (confirm(message)) {
+                location.reload();
+              } else {
                 updateCallStatus("ended");
                 cleanup();
                 router.push(
@@ -449,8 +768,32 @@ export default function CallPage() {
                     : "/dashboard/vi-user"
                 );
               }
-            }, 5000); // Give 5 seconds for potential reconnection
+            }, 2000);
           }
+        } else if (peerConnection.connectionState === "disconnected") {
+          console.log("WebRTC connection disconnected");
+          setConnectionDebug("Connection lost - attempting to reconnect");
+
+          // Give some time for potential reconnection before ending call
+          setTimeout(() => {
+            if (
+              peerConnection.connectionState === "disconnected" &&
+              callStatusRef.current === "connected"
+            ) {
+              console.log("Connection still lost after timeout, ending call");
+              updateCallStatus("ended");
+              cleanup();
+              router.push(
+                role === "volunteer"
+                  ? "/dashboard/volunteer"
+                  : "/dashboard/vi-user"
+              );
+            }
+          }, 10000); // Wait 10 seconds for reconnection
+        } else if (peerConnection.connectionState === "connecting") {
+          setConnectionDebug("Establishing connection...");
+        } else if (peerConnection.connectionState === "checking") {
+          setConnectionDebug("Checking connection...");
         }
       };
 
@@ -503,23 +846,104 @@ export default function CallPage() {
         peerConnection.qualityInterval = qualityInterval;
       };
 
-      // Add additional debugging for ICE connection state
+      // Enhanced ICE connection state monitoring with detailed diagnostics
       peerConnection.oniceconnectionstatechange = () => {
-        console.log("ICE connection state:", peerConnection.iceConnectionState);
-        setConnectionDebug(`ICE: ${peerConnection.iceConnectionState}`);
+        const iceState = peerConnection.iceConnectionState;
+        const connectionState = peerConnection.connectionState;
+        const signalingState = peerConnection.signalingState;
 
-        if (
-          peerConnection.iceConnectionState === "connected" ||
-          peerConnection.iceConnectionState === "completed"
-        ) {
-          console.log("ICE connection established - peers can communicate");
-        } else if (peerConnection.iceConnectionState === "failed") {
-          console.error("ICE connection failed");
-          setConnectionDebug("ICE connection failed - ending call");
+        console.log(
+          `ICE connection state: ${iceState}, Connection: ${connectionState}, Signaling: ${signalingState}`
+        );
+        setConnectionDebug(`ICE: ${iceState} | Connection: ${connectionState}`);
+
+        if (iceState === "connected" || iceState === "completed") {
+          console.log("✅ ICE connection established - peers can communicate");
+
+          // Log ICE candidate pairs that worked
+          peerConnection.getStats().then((stats) => {
+            stats.forEach((report) => {
+              if (
+                report.type === "candidate-pair" &&
+                report.state === "succeeded"
+              ) {
+                console.log("🔗 Successful candidate pair:", {
+                  localCandidate: report.localCandidateId,
+                  remoteCandidate: report.remoteCandidateId,
+                  bytesReceived: report.bytesReceived,
+                  bytesSent: report.bytesSent,
+                });
+              }
+            });
+          });
+        } else if (iceState === "failed") {
+          console.error("❌ ICE connection failed");
+          setConnectionDebug("❌ ICE connection failed - diagnosing...");
+
+          // Enhanced diagnostics for ICE failure
+          peerConnection
+            .getStats()
+            .then((stats) => {
+              let stunAttempts = 0;
+              let turnAttempts = 0;
+              let localCandidates = 0;
+              let remoteCandidates = 0;
+
+              stats.forEach((report) => {
+                if (report.type === "local-candidate") {
+                  localCandidates++;
+                  console.log("📍 Local candidate:", {
+                    type: report.candidateType,
+                    protocol: report.protocol,
+                    address: report.address,
+                    port: report.port,
+                  });
+                } else if (report.type === "remote-candidate") {
+                  remoteCandidates++;
+                  console.log("📍 Remote candidate:", {
+                    type: report.candidateType,
+                    protocol: report.protocol,
+                    address: report.address,
+                    port: report.port,
+                  });
+                } else if (report.type === "candidate-pair") {
+                  if (report.state === "failed") {
+                    console.log("💥 Failed candidate pair:", {
+                      state: report.state,
+                      nominated: report.nominated,
+                      localCandidate: report.localCandidateId,
+                      remoteCandidate: report.remoteCandidateId,
+                    });
+                  }
+                }
+              });
+
+              console.log(
+                `📊 ICE Statistics: ${localCandidates} local, ${remoteCandidates} remote candidates`
+              );
+
+              // Provide specific guidance based on candidate types
+              if (localCandidates === 0) {
+                setConnectionDebug(
+                  "❌ No local ICE candidates - check network connectivity"
+                );
+              } else if (remoteCandidates === 0) {
+                setConnectionDebug(
+                  "❌ No remote ICE candidates - peer connectivity issue"
+                );
+              } else {
+                setConnectionDebug(
+                  "❌ ICE candidates found but connection failed - likely firewall/NAT issue"
+                );
+              }
+            })
+            .catch((err) => {
+              console.error("Error getting ICE stats:", err);
+            });
 
           // Auto-end call if ICE fails and we're still connected
           if (callStatusRef.current === "connected") {
-            console.log("Auto-ending call due to ICE failure");
+            console.log("Auto-ending call due to ICE failure in 5 seconds...");
             setTimeout(() => {
               if (callStatusRef.current === "connected") {
                 updateCallStatus("ended");
@@ -530,45 +954,32 @@ export default function CallPage() {
                     : "/dashboard/vi-user"
                 );
               }
-            }, 3000);
+            }, 5000);
           }
-        } else if (peerConnection.iceConnectionState === "disconnected") {
-          console.log("ICE connection disconnected");
-          setConnectionDebug("ICE disconnected - checking for reconnection...");
+        } else if (iceState === "disconnected") {
+          console.log("⚠️ ICE connection disconnected - may recover");
+          setConnectionDebug(
+            "⚠️ ICE disconnected - checking for reconnection..."
+          );
+        } else if (iceState === "checking") {
+          console.log("🔍 ICE connection checking - gathering candidates");
+          setConnectionDebug("🔍 Establishing connection...");
+        } else if (iceState === "new") {
+          console.log("🆕 ICE connection new - starting process");
+          setConnectionDebug("🆕 Initializing connection...");
         }
       };
 
-      // Create offer if volunteer (volunteer initiates)
-      if (role === "volunteer") {
-        console.log("Volunteer creating offer");
-        try {
-          const offer = await peerConnection.createOffer({
-            offerToReceiveVideo: true,
-            offerToReceiveAudio: true,
-          });
-          await peerConnection.setLocalDescription(offer);
-          console.log("Sending offer to room:", roomId);
+      // Coordinate offer creation - always let volunteer create offer after both are ready
+      console.log("WebRTC initialization completed for role:", role);
 
-          const activeSocket = socketInstance || socket;
-          if (activeSocket?.connected) {
-            activeSocket.emit("offer", {
-              roomId,
-              offer,
-            });
-          } else {
-            throw new Error("Socket not connected for offer");
-          }
-        } catch (offerError) {
-          console.error("Error creating/sending offer:", offerError);
-        }
-      } else {
-        // VI user signals they're ready to receive offer
-        console.log("VI user signaling ready for offer");
-        const activeSocket = socketInstance || socket;
-        if (activeSocket?.connected) {
-          activeSocket.emit("peer-ready", { roomId, role: "vi-user" });
-        }
+      const activeSocket = socketInstance || socket;
+      if (activeSocket?.connected) {
+        activeSocket.emit("peer-ready", { roomId, role });
+        console.log("Emitted peer-ready for role:", role);
       }
+
+      console.log("WebRTC setup completed successfully");
     } catch (error) {
       console.error("Error initializing WebRTC:", error);
       setWebrtcInitialized(false);
@@ -592,9 +1003,19 @@ export default function CallPage() {
   const handleOffer = async (data, socketInstance) => {
     try {
       console.log("Received offer from:", data.roomId);
+
+      // If peer connection isn't ready, initialize it first
       if (!peerConnectionRef.current) {
-        console.error("No peer connection available for offer");
-        return;
+        console.log("Peer connection not ready, initializing WebRTC first...");
+        await initializeWebRTC(data.roomId || currentRoomId, socketInstance);
+
+        // Give a short delay for initialization to complete
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        if (!peerConnectionRef.current) {
+          console.error("Failed to initialize peer connection for offer");
+          return;
+        }
       }
 
       console.log("Setting remote description from offer");
@@ -779,6 +1200,9 @@ export default function CallPage() {
         </div>
         {callStatus === "connected" && (
           <div className="text-sm text-gray-400">Call ID: {callId}</div>
+        )}
+        {connectionDebug && callStatus === "connecting" && (
+          <div className="text-xs text-yellow-400">{connectionDebug}</div>
         )}
       </div>
 

@@ -108,12 +108,15 @@ export default function VIUserDashboard() {
       console.log("VI user connected to socket:", newSocket.id);
 
       // Join as VI user
-      newSocket.emit("join", {
+      const userData = {
         id: session.user.id,
         name: session.user.name,
         role: session.user.role,
         language: session.user.language || "en",
-      });
+      };
+
+      console.log("VI user emitting join with userData:", userData);
+      newSocket.emit("join", userData);
     });
 
     // Listen for call events
@@ -125,6 +128,15 @@ export default function VIUserDashboard() {
 
     newSocket.on("call_accepted", (data) => {
       console.log("Call accepted by volunteer:", data);
+      setIsWaitingForVolunteer(false);
+      setIsInCall(true);
+      // Navigate to call interface
+      router.push(`/call?callId=${data.callId}&role=vi-user`);
+    });
+
+    // Also listen for call_connected (alternative event from server)
+    newSocket.on("call_connected", (data) => {
+      console.log("Call connected event received:", data);
       setIsWaitingForVolunteer(false);
       setIsInCall(true);
       // Navigate to call interface
@@ -158,6 +170,10 @@ export default function VIUserDashboard() {
   }, [session?.user?.id]);
 
   const handleStartCall = async () => {
+    console.log("handleStartCall called");
+    console.log("Socket connected:", socket?.connected);
+    console.log("Session user:", session?.user);
+
     if (!socket || !socket.connected) {
       alert("Not connected to call service. Please refresh the page.");
       return;
@@ -166,12 +182,15 @@ export default function VIUserDashboard() {
     setIsWaitingForVolunteer(true);
 
     try {
-      socket.emit("start_call", {
+      const callData = {
         viUserId: session.user.id,
         viUserName: session.user.name,
         language: session.user.language || "en",
         timestamp: new Date().toISOString(),
-      });
+      };
+
+      console.log("Emitting start_call with data:", callData);
+      socket.emit("start_call", callData);
     } catch (error) {
       console.error("Error starting call:", error);
       setIsWaitingForVolunteer(false);
