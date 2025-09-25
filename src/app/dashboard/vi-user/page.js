@@ -282,7 +282,7 @@ export default function VIUserDashboard() {
                   Call in Progress
                 </h2>
                 <p className="text-green-700">
-                  You're connected with a volunteer
+                  You&apos;re connected with a volunteer
                 </p>
               </div>
             </div>
@@ -408,8 +408,8 @@ export default function VIUserDashboard() {
 
               <p className="text-muted-foreground">
                 Upload a photo and get an instant AI-powered description of
-                what's in the image. Perfect for quick questions and immediate
-                answers.
+                what&apos;s in the image. Perfect for quick questions and
+                immediate answers.
               </p>
 
               <div className="space-y-3">

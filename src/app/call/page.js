@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { io } from "socket.io-client";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, PhoneOff, Camera, CameraOff } from "lucide-react";
@@ -14,7 +14,7 @@ import {
   stopAllCallSounds,
 } from "@/lib/sounds";
 
-export default function CallPage() {
+function CallPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1395,5 +1395,19 @@ export default function CallPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CallPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          Loading...
+        </div>
+      }
+    >
+      <CallPageContent />
+    </Suspense>
   );
 }

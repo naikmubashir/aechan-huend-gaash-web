@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function AIAssistant() {
   const { data: session } = useSession();
@@ -180,11 +181,13 @@ export default function AIAssistant() {
               <div className="space-y-6">
                 {/* Image preview */}
                 <div className="relative">
-                  <img
+                  <Image
                     src={preview}
                     alt="Selected file for analysis"
                     className="w-full max-w-md mx-auto rounded-lg shadow-lg"
                     style={{ maxHeight: "400px", objectFit: "contain" }}
+                    width={500}
+                    height={400}
                   />
                 </div>
 

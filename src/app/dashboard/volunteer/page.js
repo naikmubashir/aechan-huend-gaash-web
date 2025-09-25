@@ -398,8 +398,8 @@ export default function VolunteerDashboard() {
 
           <div className="mt-4 p-4 bg-muted/50 rounded-lg">
             <p id="availability-desc" className="text-sm text-muted-foreground">
-              When available, you'll receive notifications for incoming calls
-              from users who need visual assistance. You can toggle your
+              When available, you&apos;ll receive notifications for incoming
+              calls from users who need visual assistance. You can toggle your
               availability anytime.
             </p>
           </div>
@@ -458,10 +458,10 @@ export default function VolunteerDashboard() {
             <div className="bg-card border rounded-lg p-6">
               <h4 className="font-semibold mb-3 flex items-center gap-2">
                 <Clock className="text-primary" size={20} />
-                When You're Available
+                When You&apos;re Available
               </h4>
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• You'll receive notifications for incoming calls</li>
+                <li>• You&apos;ll receive notifications for incoming calls</li>
                 <li>• First volunteer to accept gets connected</li>
                 <li>• Calls are typically 5-15 minutes long</li>
                 <li>• You can decline calls anytime</li>
@@ -474,7 +474,7 @@ export default function VolunteerDashboard() {
                 During a Call
               </h4>
               <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• You'll see the user's camera feed</li>
+                <li>• You&apos;ll see the user&apos;s camera feed</li>
                 <li>• Describe what you see clearly</li>
                 <li>• Be patient and helpful</li>
                 <li>• Either party can end the call</li>
