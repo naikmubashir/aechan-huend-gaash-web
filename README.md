@@ -63,7 +63,56 @@ A comprehensive web-based platform that connects blind and low-vision users with
 - **Tailwind CSS**: Responsive, accessible styling with custom components
 - **Radix UI Primitives**: Accessible UI components with proper keyboard navigation
 
-## 🚀 Getting Started
+## � Screenshots
+
+### Welcome Page
+The main landing page where users choose their path - either seeking visual assistance or volunteering to help others. This accessible interface clearly presents both options with descriptive text.
+
+![Welcome Page](public/screenshots/welcome-page.png)
+
+### User Registration
+Role-based signup pages tailored for each user type, ensuring the registration process is optimized for the specific needs of VI users and volunteers.
+
+#### VI User Signup
+![VI User Signup](public/screenshots/vi-user-signup.png)
+
+#### Volunteer Signup  
+![Volunteer Signup](public/screenshots/volunteer-signup.png)
+
+### User Authentication
+Accessible signin pages designed for each user role with clear navigation and form validation.
+
+#### VI User Signin
+![VI User Signin](public/screenshots/vi-user-signin.png)
+
+#### Volunteer Signin
+![Volunteer Signin](public/screenshots/volunteer-signin.png)
+
+### VI User Dashboard
+
+The dashboard for visually impaired users provides quick access to essential features including starting video calls with volunteers and using the AI assistant for image analysis.
+
+![VI User Dashboard](public/screenshots/vi-dashboard.png)
+
+### Volunteer Dashboard
+
+Volunteers can toggle their availability, view incoming call requests, and track their volunteer statistics through this dedicated interface.
+
+![Volunteer Dashboard](public/screenshots/volunteer-dashboard.png)
+
+### User Profile
+
+A comprehensive profile management interface where users can update their preferences, change passwords, and manage account settings with full accessibility support.
+
+![User Profile](public/screenshots/user-profile.png)
+
+### Video Call Interface
+
+The real-time video call interface connecting VI users with volunteers, featuring accessible controls and clear visual indicators for call status.
+
+![Video Call Interface](public/screenshots/video-call.png)
+
+## �🚀 Getting Started
 
 ### Prerequisites
 
@@ -407,7 +456,6 @@ GOOGLE_API_KEY=your-google-gemini-api-key
 NODE_ENV=development
 ```
 
-
 ### Code Standards
 
 - **JavaScript**: ES6+ with proper error handling
@@ -420,7 +468,6 @@ NODE_ENV=development
 
 ## 🆘 Support & Troubleshooting
 
-
 ### Getting Help
 
 - **Issues**: Report bugs via GitHub Issues
@@ -428,7 +475,6 @@ NODE_ENV=development
 - **Community**: Join discussions in repository
 - **Support**: Contact maintainers for critical issues
 
-
 ---
 
-**Built with ❤️ for accessibility and inclusion by [Naik Mubashir](https://www.github.com/naikmubashir)** 
+**Built with ❤️ for accessibility and inclusion by [Naik Mubashir](https://www.github.com/naikmubashir)**
