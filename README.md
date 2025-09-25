@@ -2,6 +2,10 @@
 
 A comprehensive web-based platform that connects blind and low-vision users with sighted volunteers and AI assistance for real-time visual support. Built with Next.js 15, this accessible application enables video calls between users and volunteers, plus AI-powered image descriptions with advanced sound notifications.
 
+## 🔗 Live Demo
+
+**[Visit the Live Application](https://aechan-huend-gaash-web.vercel.app)**
+
 ## 🌟 Features
 
 ### Core Functionality
@@ -66,26 +70,33 @@ A comprehensive web-based platform that connects blind and low-vision users with
 ## � Screenshots
 
 ### Welcome Page
+
 The main landing page where users choose their path - either seeking visual assistance or volunteering to help others. This accessible interface clearly presents both options with descriptive text.
 
 ![Welcome Page](public/screenshots/welcome-page.png)
 
 ### User Registration
+
 Role-based signup pages tailored for each user type, ensuring the registration process is optimized for the specific needs of VI users and volunteers.
 
 #### VI User Signup
+
 ![VI User Signup](public/screenshots/vi-user-signup.png)
 
-#### Volunteer Signup  
+#### Volunteer Signup
+
 ![Volunteer Signup](public/screenshots/volunteer-signup.png)
 
 ### User Authentication
+
 Accessible signin pages designed for each user role with clear navigation and form validation.
 
 #### VI User Signin
+
 ![VI User Signin](public/screenshots/vi-user-signin.png)
 
 #### Volunteer Signin
+
 ![Volunteer Signin](public/screenshots/volunteer-signin.png)
 
 ### VI User Dashboard
