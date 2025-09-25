@@ -272,7 +272,7 @@ export default function AIAssistant() {
               <ul className="space-y-1">
                 <li>• Avoid blurry or very dark images</li>
                 <li>• Get closer for detail or farther for context</li>
-                <li>• Try different angles if the first isn't clear</li>
+                <li>• Try different angles if the first isn&apos;t clear</li>
               </ul>
             </div>
           </div>

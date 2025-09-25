@@ -13,15 +13,15 @@ export default function Home() {
   useEffect(() => {
     // Redirect authenticated users to their dashboard
     if (session?.user) {
-      if (session.user.role === 'VI_USER') {
-        router.push('/dashboard/vi-user');
-      } else if (session.user.role === 'VOLUNTEER') {
-        router.push('/dashboard/volunteer');
+      if (session.user.role === "VI_USER") {
+        router.push("/dashboard/vi-user");
+      } else if (session.user.role === "VOLUNTEER") {
+        router.push("/dashboard/volunteer");
       }
     }
   }, [session, router]);
 
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg" role="status" aria-live="polite">
@@ -32,11 +32,11 @@ export default function Home() {
   }
 
   const handleNeedAssistance = () => {
-    router.push('/auth/signin?role=VI_USER');
+    router.push("/auth/signin?role=VI_USER");
   };
 
   const handleVolunteer = () => {
-    router.push('/auth/signin?role=VOLUNTEER');
+    router.push("/auth/signin?role=VOLUNTEER");
   };
 
   return (
@@ -62,8 +62,8 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main 
-        id="main-content" 
+      <main
+        id="main-content"
         className="flex-1 flex flex-col items-center justify-center px-4 py-12"
         role="main"
       >
@@ -71,10 +71,10 @@ export default function Home() {
           <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-foreground">
             How would you like to get started?
           </h2>
-          
+
           <p className="text-lg mb-12 text-muted-foreground max-w-2xl mx-auto">
-            Connect with volunteers or use AI assistance for real-time visual support. 
-            Choose your path below to join our accessible community.
+            Connect with volunteers or use AI assistance for real-time visual
+            support. Choose your path below to join our accessible community.
           </p>
 
           {/* Main action buttons */}
@@ -90,8 +90,8 @@ export default function Home() {
                 <Eye size={48} aria-hidden="true" />
                 <span>I need visual assistance</span>
               </Button>
-              <p 
-                id="need-assistance-desc" 
+              <p
+                id="need-assistance-desc"
                 className="text-sm text-muted-foreground"
               >
                 Connect with volunteers or use AI to describe what you see
@@ -110,11 +110,9 @@ export default function Home() {
                 <HandHeart size={48} aria-hidden="true" />
                 <span>I would like to volunteer</span>
               </Button>
-              <p 
-                id="volunteer-desc" 
-                className="text-sm text-muted-foreground"
-              >
-                Help others by providing visual assistance when you're available
+              <p id="volunteer-desc" className="text-sm text-muted-foreground">
+                Help others by providing visual assistance when you&apos;re
+                available
               </p>
             </div>
           </div>
@@ -150,7 +148,8 @@ export default function Home() {
       <footer className="w-full bg-muted py-6 mt-12">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
-            © 2025 Aechan Huend Gaash. Connecting communities through visual assistance.
+            © 2025 Aechan Huend Gaash. Connecting communities through visual
+            assistance.
           </p>
         </div>
       </footer>
