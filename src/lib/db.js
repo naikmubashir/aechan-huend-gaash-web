@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 
-//import config from "./env.js";
+import config from "./env.js";
 
-const MONGODB_URI = process.env.MONGODB_URI
+//const MONGODB_URI = config.mongodb.uri;
+const MONGODB_URI = process.env.MONGODB_URI;
+
 console.log('Database connection check:', {
   hasUri: !!MONGODB_URI,
   //nodeEnv: config.nodeEnv
