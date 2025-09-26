@@ -23,9 +23,10 @@ app.prepare().then(() => {
     cors: {
       origin:
         process.env.NODE_ENV === "production"
-          ? false
+          ? ["https://aechan-huend-gaash-web.vercel.app"]
           : ["http://localhost:3000"],
       methods: ["GET", "POST"],
+      credentials: true,
     },
   });
 

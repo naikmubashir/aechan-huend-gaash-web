@@ -14,12 +14,15 @@ export function useSocket() {
     if (!session?.user) return;
 
     if (!socketRef.current) {
-      socketRef.current = io(
-        process.env.NODE_ENV === "production" ? "" : "http://localhost:3000",
-        {
-          transports: ["websocket", "polling"],
-        }
-      );
+      const socketServerUrl =
+        process.env.NODE_ENV === "production"
+          ? process.env.NEXT_PUBLIC_SOCKET_SERVER_URL ||
+            "https://aechan-huend-gaash-server.onrender.com"
+          : "http://localhost:3000";
+
+      socketRef.current = io(socketServerUrl, {
+        transports: ["websocket", "polling"],
+      });
 
       const socket = socketRef.current;
 
