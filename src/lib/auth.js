@@ -5,6 +5,7 @@ import dbConnect from "./db";
 import User from "../models/User";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true, // Trust all hosts in development
   providers: [
     Credentials({
       name: "credentials",
@@ -74,6 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 export const authOptions = {
+  trustHost: true, // Trust all hosts in development
   providers: [
     Credentials({
       name: "credentials",
