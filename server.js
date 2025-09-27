@@ -23,7 +23,10 @@ app.prepare().then(() => {
     cors: {
       origin:
         process.env.NODE_ENV === "production"
-          ? ["https://aechan-huend-gaash-web.vercel.app"]
+          ? [
+              "https://aechan-huend-gaash-web.vercel.app",
+              "https://aechan-huend-gaash-web.onrender.com"
+            ]
           : ["http://localhost:3000"],
       methods: ["GET", "POST"],
       credentials: true,
