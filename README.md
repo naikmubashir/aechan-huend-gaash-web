@@ -8,64 +8,16 @@ A comprehensive web-based platform that connects blind and low-vision users with
 
 ## 🌟 Features
 
-### Core Functionality
-
 - **Two User Roles**: VI Users (visually impaired) and Volunteers with role-based dashboards
-- **Real-time Video Calls**: Two-way video (VI User to Volunteer) with two-way audio communication
+- **Real-time Video Calls**: WebRTC-powered two-way video and audio communication
 - **AI Assistant**: Google Gemini-powered image analysis with text-to-speech capabilities
 - **Smart Sound System**: Audio notifications for call events (incoming, outgoing, connected, ended)
 - **Volunteer Matching**: Real-time broadcast system for connecting available volunteers
 - **Session Management**: Persistent call sessions with reconnection support
 - **User Statistics**: Call tracking, duration monitoring, and volunteer activity metrics
-
-### Advanced Call Features
-
-- **WebRTC P2P Communication**: Direct peer-to-peer video/audio with optimized codecs
-- **ICE Server Connectivity Testing**: Network health checks before establishing connections
-- **Adaptive Quality Control**: Automatic bandwidth optimization and quality adjustments
-- **Connection Recovery**: Automatic reconnection handling and timeout management
 - **Multi-language Support**: Interface and audio descriptions in 10+ languages
-- **Call Room Management**: Secure room-based call isolation with unique identifiers
-- **Volunteer Availability System**: Real-time availability toggling and status management
-
-### Sound Notifications System
-
-- **Incoming Call Sound**: Looping alert for volunteers receiving call requests
-- **Outgoing Call Sound**: Connection tone while VI users wait for volunteers
-- **Call Connected Sound**: Success notification when calls are established
-- **Call Ended Sound**: Closure notification when calls terminate
-- **Smart Audio Management**: Automatic sound cleanup and volume control
-- **Error Handling**: Graceful fallbacks that don't interrupt app functionality
-
-### Accessibility Features
-
-- **WCAG 2.1 AA Compliance**: Full keyboard navigation and screen reader support
-- **Semantic HTML**: Proper heading structure and comprehensive ARIA attributes
-- **Large Click Targets**: Optimized for users with motor impairments
-- **Text-to-Speech**: AI descriptions read aloud automatically with playback controls
-- **High Contrast Support**: Accessible color schemes and visual indicators
-- **Reduced Motion**: Respects user preferences for animations and transitions
-- **Skip Navigation**: Screen reader shortcuts to main content
-- **Focus Management**: Proper focus handling throughout the application
-
-### Security & Authentication
-
-- **NextAuth.js Integration**: Secure authentication with JWT tokens
-- **Role-based Access Control**: Separate interfaces for VI Users and Volunteers
-- **Session Persistence**: Secure session management across browser sessions
-- **Password Encryption**: bcrypt hashing for secure credential storage
-- **Protected API Routes**: Server-side authentication checks for all endpoints
-- **Database Security**: MongoDB connection with proper data validation
-
-### Technical Features
-
-- **Next.js 15**: Modern React framework with App Router and Server Components
-- **Socket.IO**: Real-time bidirectional communication for call signaling
-- **MongoDB with Mongoose**: Robust data persistence with schema validation
-- **WebRTC**: Peer-to-peer video/audio communication with STUN/TURN servers
-- **Google Gemini AI**: Advanced image analysis and natural language descriptions
-- **Tailwind CSS**: Responsive, accessible styling with custom components
-- **Radix UI Primitives**: Accessible UI components with proper keyboard navigation
+- **Full Accessibility**: WCAG 2.1 AA compliance with screen reader support
+- **Secure Authentication**: NextAuth.js with role-based access control
 
 ## � Screenshots
 
@@ -123,12 +75,12 @@ The real-time video call interface connecting VI users with volunteers, featurin
 
 ![Video Call Interface](public/screenshots/video-call.png)
 
-## �🚀 Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Node.js 18+**: Latest LTS version recommended
-- **MongoDB**: Local instance or cloud database (MongoDB Atlas)
+- **MongoDB**: Local instance or MongoDB Atlas cloud database
 - **Google Gemini API Key**: For AI image analysis functionality
 - **Modern Browser**: Chrome, Firefox, Safari, or Edge with WebRTC support
 
@@ -148,28 +100,18 @@ The real-time video call interface connecting VI users with volunteers, featurin
    ```
 
 3. **Environment Configuration**
-
-   Copy the example environment file and configure:
-
-   ```bash
-   cp .env.local.example .env.local
-   ```
-
-   Update `.env.local` with your configuration:
+   Create `.env.local` with your configuration:
 
    ```env
-   # Database Configuration
+   # Database
    MONGODB_URI=mongodb://localhost:27017/aechan-huend-gaash
 
    # Authentication
    NEXTAUTH_URL=http://localhost:3000
-   NEXTAUTH_SECRET=your-secure-secret-key-here-minimum-32-characters
+   NEXTAUTH_SECRET=your-secure-secret-key-minimum-32-characters
 
    # AI Services
-   GOOGLE_API_KEY=your-google-gemini-api-key-here
-
-   # Optional: Production settings
-   NODE_ENV=development
+   GOOGLE_API_KEY=your-google-gemini-api-key
    ```
 
 4. **Start the development server**
@@ -179,128 +121,43 @@ The real-time video call interface connecting VI users with volunteers, featurin
    ```
 
 5. **Access the application**
-
    Open [http://localhost:3000](http://localhost:3000) in your browser
 
-### Production Deployment
+### Available Scripts
 
-1. **Build the application**
-
-   ```bash
-   npm run build
-   ```
-
-2. **Start production server**
-
-   ```bash
-   npm start
-   ```
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build production application
+- `npm start` - Start production server
+- `npm run lint` - Run ESLint for code quality checks
 
 ## 📱 Usage Guide
 
 ### For VI Users (Visually Impaired)
 
-1. **Account Setup**
-
-   - Click "I need visual assistance" on the homepage
-   - Create account with email, name, and password
-   - Select preferred language for descriptions
-
-2. **Dashboard Features**
-
-   - **Call a Volunteer**: Start a video call with an available volunteer
-   - **AI Assistant**: Upload photos for instant AI-powered descriptions
-   - **Profile Management**: Update language preferences and account settings
-   - **Call History**: View past call statistics and duration
-
-3. **During Calls**
-
-   - Enable camera to share your view with the volunteer
-   - Use audio to describe what you need help with
-   - Control microphone and camera as needed
-   - End calls when assistance is complete
-
-4. **AI Assistant**
-   - Upload images directly or use camera capture
-   - Receive detailed text descriptions
-   - Listen to audio playback of descriptions
-   - Re-analyze images with different perspectives
+1. **Account Setup**: Click "I need visual assistance" → Create account and select language
+2. **Dashboard Features**: Call volunteers, use AI assistant, manage profile, view history
+3. **During Calls**: Enable camera to share view, use audio to describe needs
 
 ### For Volunteers
 
-1. **Account Setup**
+1. **Account Setup**: Click "I would like to volunteer" → Create account and set availability
+2. **Dashboard Features**: Toggle availability, accept calls, view statistics
+3. **During Calls**: Provide clear descriptions, ask clarifying questions, be supportive
 
-   - Click "I would like to volunteer" on the homepage
-   - Create account and complete volunteer profile
-   - Set availability preferences
+### AI Assistant Usage
 
-2. **Dashboard Features**
+- Upload images or use camera capture
+- Receive detailed text descriptions with audio playback
+- Re-analyze images with different perspectives
 
-   - **Availability Toggle**: Control when you receive call notifications
-   - **Incoming Calls**: Accept or decline call requests from VI users
-   - **Statistics**: View your volunteer activity and impact metrics
-   - **Profile Management**: Update availability and contact preferences
+## 🏗️ Technology Stack
 
-3. **During Calls**
-   - Provide clear, detailed descriptions of what you see
-   - Ask clarifying questions to better understand needs
-   - Be patient and supportive throughout the interaction
-   - End calls professionally when assistance is complete
-
-### Sound System Features
-
-- **Automatic Notifications**: Hear audio cues for all call events
-- **Volume Control**: System respects browser audio settings
-- **Smart Management**: Sounds automatically stop when appropriate
-- **Accessibility**: Audio feedback enhances user experience for all users
-
-## 🏗️ Architecture & Technology Stack
-
-### Frontend Technologies
-
-- **Next.js 15**: React framework with App Router, Server Components, and optimized performance
-- **React 19**: Latest React with concurrent features and improved hooks
-- **Tailwind CSS**: Utility-first CSS framework with custom accessibility-focused components
-- **Radix UI**: Accessible component primitives with keyboard navigation support
-- **Lucide React**: Comprehensive icon library with accessibility features
-
-### Backend & API
-
-- **Next.js API Routes**: Server-side endpoints with middleware support
-- **Socket.IO Server**: Real-time bidirectional communication with room management
-- **NextAuth.js v5**: Modern authentication with JWT and session management
-- **bcryptjs**: Secure password hashing and verification
-- **Custom Middleware**: Authentication, validation, and error handling
-
-### Database & Data Management
-
-- **MongoDB**: Document-based database with flexible schema
-- **Mongoose**: ODM with schema validation, middleware, and query building
-- **Data Models**: User, Call, and Session schemas with relationships
-- **Indexing**: Optimized queries for user stats and call history
-- **Connection Pooling**: Efficient database connection management
-
-### Real-time Communication
-
-- **WebRTC**: Peer-to-peer video/audio with codec optimization
-- **Socket.IO**: Signaling server for WebRTC handshake and room management
-- **ICE Servers**: STUN/TURN servers for NAT traversal and connectivity
-- **Media Constraints**: Optimized video/audio settings for performance
-- **Connection Recovery**: Automatic reconnection and timeout handling
-
-### AI & Machine Learning
-
-- **Google Gemini API**: Advanced image analysis and description generation
-- **Text-to-Speech**: Browser-based speech synthesis for audio descriptions
-- **Image Processing**: Client-side image optimization and validation
-- **Multi-language Support**: AI descriptions in 10+ languages
-
-### Audio System
-
-- **Web Audio API**: Advanced sound management and playback control
-- **Sound Caching**: Optimized audio instance management
-- **Volume Control**: Dynamic volume adjustment and user preferences
-- **Error Handling**: Graceful fallbacks for audio failures
+- **Frontend**: Next.js 15, React 19, Tailwind CSS, Radix UI
+- **Backend**: Next.js API Routes, Socket.IO, NextAuth.js v5
+- **Database**: MongoDB with Mongoose ODM
+- **Real-time**: WebRTC for video calls, Socket.IO for signaling
+- **AI**: Google Gemini API for image analysis
+- **Audio**: Web Audio API for sound notifications
 
 ## 📂 Project Structure
 
@@ -395,77 +252,9 @@ aechan-huend-gaash/
 
 ## 🛠️ Development
 
-### Prerequisites for Development
-
-- Node.js 18+ with npm
-- MongoDB running locally or cloud instance
-- Google Cloud account with Gemini API access
-- Git for version control
-
 ### Development Setup
 
-1. **Clone and Install**
-
-   ```bash
-   git clone <repository-url>
-   cd aechan-huend-gaash
-   npm install
-   ```
-
-2. **Environment Variables**
-
-   ```bash
-   cp .env.local.example .env.local
-   # Configure all required environment variables
-   ```
-
-3. **Database Setup**
-
-   ```bash
-   # If using local MongoDB
-   mongod --dbpath /path/to/your/db
-
-   # Or use MongoDB Atlas cloud database
-   # Update MONGODB_URI in .env.local accordingly
-   ```
-
-4. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
-
-### Available Scripts
-
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build production application
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint for code quality checks
-
-### Code Structure Guidelines
-
-- **Components**: Use functional components with hooks
-- **Styling**: Tailwind CSS with accessibility-first approach
-- **State Management**: React hooks and context for global state
-- **Error Handling**: Comprehensive try-catch blocks and user feedback
-- **Accessibility**: WCAG 2.1 AA compliance throughout
-- **Performance**: Code splitting and lazy loading where appropriate
-
-### Environment Variables Reference
-
-```env
-# Required - Database
-MONGODB_URI=mongodb://localhost:27017/aechan-huend-gaash
-
-# Required - Authentication
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secure-secret-minimum-32-characters
-
-# Required - AI Services
-GOOGLE_API_KEY=your-google-gemini-api-key
-
-# Optional - Development
-NODE_ENV=development
-```
+For detailed development setup, see the [Getting Started](#-getting-started) section above.
 
 ### Code Standards
 
@@ -477,13 +266,10 @@ NODE_ENV=development
 
 ---
 
-## 🆘 Support & Troubleshooting
-
-### Getting Help
+## 🆘 Support
 
 - **Issues**: Report bugs via GitHub Issues
 - **Documentation**: Check inline code comments
-- **Community**: Join discussions in repository
 - **Support**: Contact maintainers for critical issues
 
 ---
