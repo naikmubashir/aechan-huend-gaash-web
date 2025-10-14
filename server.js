@@ -9,11 +9,15 @@ import User from "./src/models/User.js";
 import mongoose from "mongoose";
 
 const dev = process.env.NODE_ENV !== "production";
-console.log("PPP", dev);
-const hostname = "localhost";
-const port = 3000;
+console.log("Environment:", {
+  dev,
+  nodeEnv: process.env.NODE_ENV,
+  port: process.env.PORT || port,
+});
+const hostname = dev ? "localhost" : "0.0.0.0";
+const serverPort = process.env.PORT || port;
 
-const app = next({ dev, hostname, port });
+const app = next({ dev, hostname, port: serverPort });
 const handler = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -25,12 +29,20 @@ app.prepare().then(() => {
         process.env.NODE_ENV === "production"
           ? [
               "https://aechan-huend-gaash-web.vercel.app",
-              "https://aechan-huend-gaash-web.onrender.com"
+              "https://aechan-huend-gaash-web.onrender.com",
+              "https://*.onrender.com", // Allow all Render subdomains
+              "https://*.vercel.app", // Allow all Vercel subdomains
             ]
-          : ["http://localhost:3000"],
+          : ["http://localhost:3000", "http://127.0.0.1:3000"],
       methods: ["GET", "POST"],
       credentials: true,
+      allowedHeaders: ["*"],
     },
+    transports: ["polling", "websocket"], // Ensure polling is available first
+    pingTimeout: 60000, // 60 seconds
+    pingInterval: 25000, // 25 seconds
+    upgradeTimeout: 30000, // 30 seconds
+    allowEIO3: true, // Support older clients if needed
   });
 
   // Store active volunteers and ongoing calls
@@ -616,11 +628,12 @@ app.prepare().then(() => {
 
   httpServer
     .once("error", (err) => {
-      console.error(err);
+      console.error("Server error:", err);
       process.exit(1);
     })
-    .listen(port, () => {
-      console.log(`> Ready on http://${hostname}:${port}`);
+    .listen(serverPort, hostname, () => {
+      console.log(`> Ready on http://${hostname}:${serverPort}`);
+      console.log(`> Socket.IO server ready for connections`);
     });
 });
 

@@ -17,7 +17,7 @@ export function useSocket() {
       const socketServerUrl =
         process.env.NODE_ENV === "production"
           ? process.env.NEXT_PUBLIC_SOCKET_SERVER_URL ||
-            "https://aechan-huend-gaash-server.onrender.com"
+            "https://aechan-huend-gaash-web.onrender.com"
           : "http://localhost:3000";
 
       socketRef.current = io(socketServerUrl, {

@@ -57,7 +57,7 @@ function CallPageContent() {
     playOutgoingCallSound().catch(console.warn);
 
     const socketServerUrl = process.env.NODE_ENV === "production" 
-      ? (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "https://aechan-huend-gaash-server.onrender.com")
+      ? (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "https://aechan-huend-gaash-web.onrender.com")
       : "http://localhost:3000";
 
     const newSocket = io(socketServerUrl, {

@@ -97,7 +97,7 @@ export default function VIUserDashboard() {
     console.log("Initializing VI user socket connection for:", session.user.id);
 
     const socketServerUrl = process.env.NODE_ENV === "production" 
-      ? (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "https://aechan-huend-gaash-server.onrender.com")
+      ? (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "https://aechan-huend-gaash-web.onrender.com")
       : "http://localhost:3000";
 
     const newSocket = io(socketServerUrl, {

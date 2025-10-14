@@ -107,7 +107,7 @@ export default function VolunteerDashboard() {
     console.log("Initializing socket connection for user:", session.user.id);
 
     const socketServerUrl = process.env.NODE_ENV === "production" 
-      ? (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "https://aechan-huend-gaash-server.onrender.com")
+      ? (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "https://aechan-huend-gaash-web.onrender.com/")
       : "http://localhost:3000";
 
     const newSocket = io(socketServerUrl, {
